@@ -9,14 +9,14 @@ def random_cropping(image, target_shape=(32, 32, 3), roi=None):
     height, width, _ = image.shape
     # mu, sigma = 
     if roi is None:
-        # start_x = random.randint(0, width - target_w)
-        # start_y = random.randint(0, height - target_h)
-        start_x = width - target_w + 1
-        start_y = height - target_h + 1
-        while start_x > width - target_w - 1 or start_x < 0:
-            start_x = int(random.gauss((width - target_w)//2, (width - target_w)//6))
-        while start_y > height - target_h -1 or start_y < 0:
-            start_y = int(random.gauss((height - target_h)//2, (height - target_h)//6))
+        start_x = random.randint(0, width - target_w)
+        start_y = random.randint(0, height - target_h)
+        # start_x = width - target_w + 1
+        # start_y = height - target_h + 1
+        # while start_x > width - target_w - 1 or start_x < 0:
+        #     start_x = int(random.gauss((width - target_w)//2, (width - target_w)//6))
+        # while start_y > height - target_h -1 or start_y < 0:
+        #     start_y = int(random.gauss((height - target_h)//2, (height - target_h)//6))
     else:
         # start_x = ( width - target_w ) // 2
         # start_y = ( height - target_h ) // 2
