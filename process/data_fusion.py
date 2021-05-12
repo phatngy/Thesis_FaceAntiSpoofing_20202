@@ -32,11 +32,13 @@ class FDDataset(Dataset):
         if self.mode == 'test':
             self.test_list = load_test_list()
             self.num_data = len(self.test_list)
+            self.dataset = self.test_list
             print('set dataset mode: test')
 
         elif self.mode == 'val':
             self.val_list = load_val_list()
             self.num_data = len(self.val_list)
+            self.dataset = self.val_list
             print('set dataset mode: val')
 
         elif self.mode == 'train':
@@ -47,7 +49,7 @@ class FDDataset(Dataset):
 
             if self.balance:
                 self.train_list = transform_balance(self.train_list)
-
+            self.dataset = self.train_list
         print(self.num_data)
 
 
@@ -174,6 +176,23 @@ class FDDataset(Dataset):
     def __len__(self):
         return self.num_data
 
+    def analyze(self):
+        d = {
+            'real': 0,
+            'fake': 0,
+        }
+        if self.balance:
+            d['real'] = len(self.dataset[0])
+            d['fake'] = len(self.dataset[1])
+        else:
+            for p in self.dataset:
+                label = p[-1]
+                # print(label)
+                if int(label) == 0:
+                    d['fake'] += 1
+                else:
+                    d['real'] += 1
+        return d
 
 # check #################################################################
 def run_check_train_data():

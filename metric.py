@@ -77,8 +77,8 @@ def TPR_FPR( dist, actual_issame):
         }
     for k, fpr_target in Thrs.items():
         if np.max(fpr) >= fpr_target:
-            # f = interpolate.interp1d(np.asarray(fpr), thresholds, kind= 'slinear', fill_value="extrapolate")
-            f = interpolate.interp1d(np.asarray(fpr), thresholds, kind= 'slinear')
+            f = interpolate.interp1d(np.asarray(fpr), thresholds, kind= 'slinear', fill_value="extrapolate")
+            # f = interpolate.interp1d(np.asarray(fpr), thresholds, kind= 'slinear')
             threshold = f(fpr_target)
         else:
             threshold = 0.0

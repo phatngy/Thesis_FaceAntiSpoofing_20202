@@ -31,16 +31,6 @@ def run_train(config):
     out_dir = os.path.join(out_dir,config.model_name)
     initial_checkpoint = config.pretrained_model
 
-    if config.criterion == 'ce':
-        criterion = {
-            'ce': softmax_cross_entropy_criterion,
-        }
-    elif config.criterion == 'triplet':
-        criterion = {
-            'triplet': TripletLoss('cuda' if torch.cuda.is_available() else 'cpu'),
-            'ce': softmax_cross_entropy_criterion,
-        }
-
     ## setup  -----------------------------------------------------------------------------
     if not os.path.exists(out_dir +'/checkpoint'):
         os.makedirs(out_dir +'/checkpoint')
@@ -74,6 +64,41 @@ def run_train(config):
                                 batch_size  = config.batch_size,
                                 drop_last   = False,
                                 num_workers = 8)
+    #### Distribution Data #######
+    sum1 = 0
+    dict_samples = train_dataset.analyze()
+    nclass = len(dict_samples.keys())
+    print('Data distribution: ')
+    print(dict_samples)
+    sum1 = sum(dict_samples.values())
+    max1 = max(dict_samples.values())
+    print('\n')
+    weights_loss = [ sum1/i for i in dict_samples.values() ]
+    weights_loss = torch.FloatTensor(np.array(weights_loss))
+
+    if config.criterion == 'ce':
+        criterion = {
+            'ce': softmax_cross_entropy_criterion,
+        }
+    elif config.criterion == 'triplet':
+        criterion = {
+            'triplet': TripletLoss('cuda' if torch.cuda.is_available() else 'cpu'),
+            'ce': softmax_cross_entropy_criterion,
+        }
+    elif config.criterion == 'crl':
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        criterion_class = FocalLoss(1, None).to(device)
+        # CRL loss
+        nuy = 0.1
+        lalpha = (1-(np.array(weights_loss)/max1).mean())*nuy
+        criterion_metric = CRClassLoss(nclass=nclass, 
+                            comparison='relative', 
+                            p=1/nclass, k=None, margin=0.5, 
+                            device=device)
+        criterion = {
+            'ce': softmax_cross_entropy_criterion,
+            'crl': criterion_metric,
+        }
 
     assert(len(train_dataset)>=config.batch_size)
     log.write('batch_size = %d\n'%(config.batch_size))
@@ -108,7 +133,7 @@ def run_train(config):
     ## start training here! ##############################################
     log.write('** start training here! **\n')
     log.write('                               |--------------------------- VALID -----------------------------|--------- TRAIN/BATCH -------| \n')
-    log.write('model_name   lr   iter  epoch  |  loss   acer   acc  tpr@fpr:1e-2  tpr@fpr:1e-3  tpr@fpr:1e-4  | loss_ce  loss_triplet  acc  |  time   \n')
+    log.write('model_name   lr   iter  epoch  |  loss   acer   acc  tpr@fpr:1e-2  tpr@fpr:1e-3  tpr@fpr:1e-4  | loss_{}  loss_triplet  acc  |  time   \n'.format(config.criterion))
     log.write('-----------------------------------------------------------------------------------------------------------------------\n')
 
     train_loss   = np.zeros(6,np.float32)
@@ -162,7 +187,8 @@ def run_train(config):
 
                 elif config.criterion == 'ce':
                     loss  = criterion['ce'](logit, truth)
-
+                elif config.criterion == 'crl':
+                    loss  = criterion['crl'](logit, truth)
 
                 precision,_ = metric(logit, truth)
 
@@ -173,8 +199,8 @@ def run_train(config):
                 # print statistics  ------------
                 if config.criterion == 'triplet':
                     batch_loss[:3] = np.array(( loss_ce.item(), loss_triplet.item(), precision.item(),))
-                elif config.criterion == 'ce':
-                    batch_loss[:3] = np.array((loss.item(),0,  precision.item()))
+                elif config.criterion in ['ce', 'crl']:
+                    batch_loss[:3] = np.array((loss.item(), 0,  precision.item()))
                 sum_e += 1
                 if iter%iter_smooth == 0:
                     train_loss = sum_train_loss/sum_e
