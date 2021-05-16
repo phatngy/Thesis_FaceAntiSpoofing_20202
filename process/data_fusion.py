@@ -187,7 +187,6 @@ class FDDataset(Dataset):
         else:
             for p in self.dataset:
                 label = p[-1]
-                # print(label)
                 if int(label) == 0:
                     d['fake'] += 1
                 else:

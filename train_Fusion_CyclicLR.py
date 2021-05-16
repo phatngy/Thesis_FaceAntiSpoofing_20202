@@ -98,6 +98,7 @@ def run_train(config):
         criterion = {
             'ce': softmax_cross_entropy_criterion,
             'crl': criterion_metric,
+            'focal': criterion_class,
         }
 
     assert(len(train_dataset)>=config.batch_size)
@@ -188,7 +189,10 @@ def run_train(config):
                 elif config.criterion == 'ce':
                     loss  = criterion['ce'](logit, truth)
                 elif config.criterion == 'crl':
-                    loss  = criterion['crl'](logit, truth)
+                    loss_m  = criterion['crl'](logit, truth)
+                    loss_c = criterion['focal'](logit, truth)        ### compute Focal Loss
+                    # measure accuracy and record loss
+                    loss = (1-lalpha)*loss_c + lalpha*loss_m            ### compute CRL Loss
 
                 precision,_ = metric(logit, truth)
 

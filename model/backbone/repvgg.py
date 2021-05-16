@@ -279,12 +279,12 @@ def whole_model_convert(train_model:torch.nn.Module, deploy_model:torch.nn.Modul
     if save_path is not None:
         torch.save(deploy_model.state_dict(), save_path)
 
-    input_ = torch.rand((36, 9, 48, 32))
+    input_ = torch.rand((64, 9, 48, 48))
     train_model.eval()
     deploy_model.eval()
     out1, _, _ = train_model.forward(input_)
     out2, _, _ = deploy_model.forward(input_)
-    print('diff: ', (out2-out1).abs().sum() / (36), out1.shape , out2.shape) 
+    print('diff: ', (out2-out1).abs().sum() / (64), out1.shape , out2.shape) 
 
     return deploy_model
 
