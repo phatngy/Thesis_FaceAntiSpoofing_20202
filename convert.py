@@ -7,7 +7,8 @@ import torch.utils.data
 import torch.utils.data.distributed
 
 from model.backbone.repvgg import get_RepVGG_func_by_name, repvgg_model_convert, whole_model_convert
-from model_fusion.FaceBagNet_model_FTB_SEFusion import FusionNet
+# from model_fusion.FaceBagNet_model_FTB_SEFusion import FusionNet
+from model_fusion.model_baseline_SEFusion import FusionNet
 
 parser = argparse.ArgumentParser(description='RepVGG Conversion')
 parser.add_argument('load', metavar='LOAD', help='path to the weights file')
