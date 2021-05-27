@@ -275,7 +275,7 @@ def run_test(config, dir):
                                 num_workers=8)
 
     test_dataset = FDDataset(mode='test', modality=config.image_mode, image_size=config.image_size,
-                              fold_index=config.train_fold_index)
+                              fold_index=config.train_fold_index, cross_test=config.cross_test)
     test_loader  = DataLoader( test_dataset,
                                 shuffle=False,
                                 batch_size=config.batch_size,
@@ -319,6 +319,7 @@ if __name__ == '__main__':
     parser.add_argument('--mode', type=str, default='train', choices=['train','infer_test'])
     parser.add_argument('--pretrained_model', type=str, default=None)
     parser.add_argument('--phase-test', action='store_true')
+    parser.add_argument('--cross-test', action='store_true')
     config = parser.parse_args()
     print(config)
     main(config)

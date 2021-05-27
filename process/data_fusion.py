@@ -3,7 +3,7 @@ from .augmentation import *
 from .data_helper import *
 
 class FDDataset(Dataset):
-    def __init__(self, mode, modality='color', fold_index='<NIL>', image_size=128, augment = None, balance = True, ROI=None):
+    def __init__(self, mode, modality='color', fold_index='<NIL>', image_size=128, augment = None, balance = True, ROI=None, cross_test=False):
         super(FDDataset, self).__init__()
         print('fold: '+str(fold_index))
         print(modality)
@@ -20,7 +20,7 @@ class FDDataset(Dataset):
         self.test_image_path = TST_IMGS_DIR
         self.image_size = image_size
         self.fold_index = fold_index
-
+        self.cross_test = cross_test
         self.set_mode(self.mode,self.fold_index)
 
     def set_mode(self, mode, fold_index):
@@ -34,6 +34,8 @@ class FDDataset(Dataset):
             self.num_data = len(self.test_list)
             self.dataset = self.test_list
             print('set dataset mode: test')
+            self.cross_test = self.cross_test and self.mode =='test'
+            self.non_zeros = NonZeroCrop()
 
         elif self.mode == 'val':
             self.val_list = load_val_list()
@@ -81,11 +83,14 @@ class FDDataset(Dataset):
         color = cv2.imread(os.path.join(DATA_ROOT, color),1)
         depth = cv2.imread(os.path.join(DATA_ROOT, depth),1)
         ir = cv2.imread(os.path.join(DATA_ROOT, ir),1)
-
+        if self.cross_test:
+            color = self.non_zeros(color)
+            depth = self.non_zeros(depth)
+            ir = self.non_zeros(ir)
         color = cv2.resize(color,(RESIZE_SIZE,RESIZE_SIZE))
         depth = cv2.resize(depth,(RESIZE_SIZE,RESIZE_SIZE))
         ir = cv2.resize(ir,(RESIZE_SIZE,RESIZE_SIZE))
-
+            
         if self.mode == 'train':
             ROI = self.ROI
             if ROI is not None:
@@ -192,6 +197,21 @@ class FDDataset(Dataset):
                 else:
                     d['real'] += 1
         return d
+
+
+class NonZeroCrop(object):
+    """Cut out black regions.
+    """
+
+    def __call__(self, img):
+        arr = np.asarray(img)
+        pixels = np.transpose(arr.nonzero())
+        if len(arr.shape) > 2:
+            pixels = pixels[:, :-1]
+        top = pixels.min(axis=0)
+        h, w = pixels.max(axis=0) - top
+        return F.crop(img, top[0], top[1], h, w)
+
 
 # check #################################################################
 def run_check_train_data():
