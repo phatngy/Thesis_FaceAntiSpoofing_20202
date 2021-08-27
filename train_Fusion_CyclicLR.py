@@ -72,8 +72,8 @@ def run_train(config):
     # log.write()
     sum1 = sum(dict_samples.values())
     max1 = max(dict_samples.values())
-    print('\n')
-    exit()
+    # print('\n')
+    # exit()
     weights_loss = [ sum1/i for i in dict_samples.values() ]
     weights_loss = torch.FloatTensor(np.array(weights_loss))
 
