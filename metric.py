@@ -6,6 +6,9 @@ from tqdm import tqdm
 from sklearn.metrics import confusion_matrix
 from utils import *
 import roc
+from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE
+from sklearn.metrics import classification_report, confusion_matrix
 
 
 def calculate_accuracy(threshold, dist, actual_issame):
@@ -77,8 +80,8 @@ def TPR_FPR( dist, actual_issame):
         }
     for k, fpr_target in Thrs.items():
         if np.max(fpr) >= fpr_target:
-            # f = interpolate.interp1d(np.asarray(fpr), thresholds, kind= 'slinear', fill_value="extrapolate")
-            f = interpolate.interp1d(np.asarray(fpr), thresholds, kind= 'slinear')
+            f = interpolate.interp1d(np.asarray(fpr), thresholds, kind= 'slinear', fill_value="extrapolate")
+            # f = interpolate.interp1d(np.asarray(fpr), thresholds, kind= 'slinear')
             threshold = f(fpr_target)
         else:
             threshold = 0.0
@@ -159,9 +162,13 @@ def do_valid_test( net, test_loader, criterion ):
     probs = []
     labels = []
     batch_time = AverageMeter()
+    points_to_plot = []
+    pca = PCA(n_components=40)
+    tsne = TSNE(n_components=2)
 
     for i, (input, truth) in enumerate(tqdm(test_loader)):
     # for input, truth in test_loader:
+        # print(input.size())
         b,n,c,w,h = input.size()
         input = input.view(b*n,c,w,h)
 
@@ -170,7 +177,7 @@ def do_valid_test( net, test_loader, criterion ):
 
         with torch.no_grad():
             start = time.time()
-            logit,_,_   = net(input)
+            logit,_,ft   = net(input)
             logit = logit.view(b,n,2)
             logit = torch.mean(logit, dim = 1, keepdim = False)
 
@@ -178,18 +185,26 @@ def do_valid_test( net, test_loader, criterion ):
             correct, prob = metric(logit, truth)
             batch_time.update(time.time() - start)
             loss    = criterion(logit, truth, False)
-
+            # ft = ft.view(b, n, 256)
+            # p = torch.mean(ft, dim=1, keepdim=False).float().detach()
+            # p_result = pca.fit_transform(np.array(p.cpu()))
+            # p_result = tsne.fit_transform(p_result)
+            # points = torch.cat((torch.Tensor(p_result).cuda(), truth.float().detach().view(-1, 1)), 1)
+            # print(points)
+        # points_to_plot = np.append(points_to_plot, np.array(points.cpu()))
         valid_num += len(input)
         losses.append(loss.data.cpu().numpy())
-        corrects.append(np.asarray(correct).reshape([1]))
+        corrects.append(np.asarray(correct).reshape([1]))   
         probs.append(prob.data.cpu().numpy())
         labels.append(truth.data.cpu().numpy())
-
+        # if i >= 3:
+        #     break
     # assert(valid_num == len(test_loader.sampler))
     #----------------------------------------------
-
+    # plot(points_to_plot)
     correct = np.concatenate(corrects)
-    loss    = np.concatenate(losses)
+    # print(losses)
+    # loss    = np.concatenate(losses)
     loss    = loss.mean()
     correct = np.mean(correct)
 
@@ -197,13 +212,18 @@ def do_valid_test( net, test_loader, criterion ):
     labels = np.concatenate(labels)
 
     tpr, fpr, acc = calculate_accuracy(0.5, probs[:,1], labels)
+    plot_curve(tpr, fpr)
     acer,_,_,_,_ = ACER(0.5, probs[:, 1], labels)
 
     valid_loss = np.array([
         loss, acer, acc, correct
     ])
     predicted_list = np.argmax(probs, axis=1)
-    tn, fp, fn, tp = confusion_matrix(labels, predicted_list).ravel()
+    test_report = classification_report(labels.tolist(), predicted_list.tolist(), target_names=['fake', 'real'])
+    res_confusion_mtx = confusion_matrix(labels, predicted_list).ravel()
+    tn, fp, fn, tp = res_confusion_mtx
+    print(test_report)
+    print('confusion matrix', res_confusion_mtx)
     apcer = fp/(tn + fp)
     npcer = fn/(fn + tp)
     acer_ = (apcer + npcer)/2

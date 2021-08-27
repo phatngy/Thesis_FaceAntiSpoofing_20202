@@ -2,3 +2,12 @@ models/
 */__pycache__/*
 __pycache__/*
 .vscode
+reported_models
+ckpts*
+data
+pretrained
+*pth
+*onnx
+model/backbone/__pycache__/*
+*.txt
+process/__pycache__/

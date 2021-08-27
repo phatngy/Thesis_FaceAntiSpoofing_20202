@@ -15,27 +15,27 @@ class Net(nn.Module):
         if self.is_first_bn:
             self.first_bn = nn.BatchNorm2d(3)
         
-        self.encoder = FeatherNet(se=True, avgdown=True)
+        # self.encoder = FeatherNet(se=True, avgdown=True)
         encoder_tmp = FeatherNet(se=True, avgdown=True)
         self.ft = encoder_tmp.features
 
     
     def forward(self, x):
-        batch_size,C,H,W = x.shape
+    #     batch_size,C,H,W = x.shape
 
-        if self.is_first_bn:
-            x = self.first_bn(x)
-        else:
-            mean=[0.485, 0.456, 0.406] #rgb
-            std =[0.229, 0.224, 0.225]
+    #     if self.is_first_bn:
+    #         x = self.first_bn(x)
+    #     else:
+    #         mean=[0.485, 0.456, 0.406] #rgb
+    #         std =[0.229, 0.224, 0.225]
 
-            x = torch.cat([
-                (x[:,[0]]-mean[0])/std[0],
-                (x[:,[1]]-mean[1])/std[1],
-                (x[:,[2]]-mean[2])/std[2],
-            ],1)
-        x = self.encoder(x)
-
+    #         x = torch.cat([
+    #             (x[:,[0]]-mean[0])/std[0],
+    #             (x[:,[1]]-mean[1])/std[1],
+    #             (x[:,[2]]-mean[2])/std[2],
+    #         ],1)
+    #     x = self.encoder(x)
+        x = self.forward_res3(x)
         return x
 
     def forward_res3(self, x):

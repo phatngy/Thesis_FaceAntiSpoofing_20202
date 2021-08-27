@@ -232,7 +232,7 @@ def run_test(config, dir):
     criterion = softmax_cross_entropy_criterion
     net.eval()
 
-    valid_loss,out,tprs = do_valid_test(net, valid_loader, criterion)
+    valid_loss,out,tprs = do_valid_test(net, test_loader, criterion)
     print('%0.6f  %0.6f  %0.3f  (%0.3f) \n' % (valid_loss[0], valid_loss[1], valid_loss[2], valid_loss[3]), tprs)
 
     print('infer!!!!!!!!!')

@@ -10,36 +10,89 @@ import os
 import shutil
 import sys
 import numpy as np
-from model.backbone.repvgg import whole_model_convert
+import matplotlib.pyplot as plt
+plt.switch_backend('agg')
+# from model.backbone.repvgg import whole_model_convert
 # from model_fusion.FacebagNet_model_RepVGG_SEFusion import FusionNet
 from model_fusion.FaceBagNet_model_FTB_SEFusion import FusionNet
+from model.backbone.repvgg_new import repvgg_model_convert
+# from model_fusion.model_baseline_SEFusion import FusionNet
 
 
 
-def convert(ckpt_path):
-    train_model = FusionNet(2)
+# def convert_old(ckpt_path):
+#     train_model = FusionNet(2)
     
-    deploy_model = FusionNet(deploy=True)
-    pytorch_total_params = sum(p.numel() for p in deploy_model.parameters())
-    print('total_params: ',pytorch_total_params)
-    print('Starting converting....')
+#     deploy_model = FusionNet(deploy=True)
+#     pytorch_total_params = sum(p.numel() for p in deploy_model.parameters())
+#     print('total_params: ',pytorch_total_params)
+#     print('Starting converting....')
+#     if os.path.isfile(ckpt_path):
+#         print("=> loading checkpoint '{}'".format(ckpt_path))
+#         checkpoint = torch.load(ckpt_path)
+#         if 'state_dict' in checkpoint:
+#             checkpoint = checkpoint['state_dict']
+#         ckpt = {k.replace('module.', '', 1): v for k, v in checkpoint.items()}
+#         for (k, v), (k_, _) in zip(checkpoint.items(), train_model.state_dict().items()):
+#             if k != k_:
+#                 print(k,'\t', k_)
+#         # exit(0)
+#         train_model.load_state_dict(checkpoint)
+#     else:
+#         print("=> no checkpoint found at '{}'".format(ckpt_path))
+
+#     whole_model_convert(train_model, deploy_model=deploy_model)
+#     return deploy_model, None
+
+def convert(ckpt_path, model_name=''):
+    if model_name == 'FeatherNet':
+        from model_fusion.FaceBagNet_model_FTB_SEFusion import FusionNet
+    elif model_name == 'repvgg':
+        from model_fusion.FacebagNet_model_RepVGG_SEFusion import FusionNet
+    train_model = FusionNet(2)
+    pytorch_total_params = sum(p.numel() for p in train_model.parameters())
+    print('total_params training: ',pytorch_total_params)
     if os.path.isfile(ckpt_path):
         print("=> loading checkpoint '{}'".format(ckpt_path))
         checkpoint = torch.load(ckpt_path)
         if 'state_dict' in checkpoint:
             checkpoint = checkpoint['state_dict']
-        ckpt = {k.replace('module.', '', 1): v for k, v in checkpoint.items()}
-        for (k, v), (k_, _) in zip(checkpoint.items(), train_model.state_dict().items()):
-            if k != k_:
-                print(k,'\t', k_)
-        # exit(0)
-        train_model.load_state_dict(checkpoint)
+        elif 'model' in checkpoint:
+            checkpoint = checkpoint['model']
+        ckpt = checkpoint
+        # ckpt = {k.replace('module.', ''): v for k, v in checkpoint.items()}  # strip the names
+        # print(ckpt.keys())
+        # train_model.load_state_dict(ckpt)
+        train_model = load_checkpoint(train_model, ckpt)
     else:
         print("=> no checkpoint found at '{}'".format(ckpt_path))
 
-    whole_model_convert(train_model, deploy_model=deploy_model)
-    return deploy_model, None
+    model_infer = repvgg_model_convert(train_model)
+    pytorch_total_params = sum(p.numel() for p in model_infer.parameters())
+    print('total_params infer: ',pytorch_total_params)
+    return model_infer, None
 
+def load_checkpoint(model, state_dict):
+    model_dict = model.state_dict()
+    pretrained_dict = {k: v for k, v in state_dict.items() if k in model_dict}
+    model_dict.update(pretrained_dict)
+    model.load_state_dict(pretrained_dict)
+    return model
+
+def plot(list_points):
+    points = np.array(list_points).reshape(-1, 3)
+    x = points[:, 0]
+    y = points[:, 1]
+    z = points[:, 2]
+    plt.figure()
+    plt.scatter(x, y, c=z, alpha=0.5)
+    plt.savefig('output.png')
+
+
+def plot_curve(tpr, fpr):
+    plt.figure()
+    plt.scatter(fpr, tpr)
+    plt.savefig('curve.png')
 
 
 def save(list_or_dict,name):
@@ -72,7 +125,7 @@ def to_var(x, volatile=False):
     return Variable(x, volatile=volatile)
 
 def softmax_cross_entropy_criterion(logit, truth, is_average=True):
-    loss = F.cross_entropy(logit, truth, reduce=is_average)
+    loss = F.cross_entropy(logit, truth, reduction='mean')
     return loss
 
 def bce_criterion(logit, truth, is_average=True):

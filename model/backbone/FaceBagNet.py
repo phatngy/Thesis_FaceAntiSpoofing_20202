@@ -109,7 +109,7 @@ class SEResNeXtBottleneck(Bottleneck):
     """
     ResNeXt bottleneck type C with a Squeeze-and-Excitation module.
     """
-    expansion = 4
+    expansion = 2
 
     def __init__(self, inplanes, planes, groups, reduction, stride=1,
                  downsample=None, base_width=4):
@@ -122,10 +122,10 @@ class SEResNeXtBottleneck(Bottleneck):
         self.conv2 = nn.Conv2d(width, width, kernel_size=3, stride=stride,
                                padding=1, groups=groups, bias=False)
         self.bn2 = nn.BatchNorm2d(width)
-        self.conv3 = nn.Conv2d(width, planes * 4, kernel_size=1, bias=False)
-        self.bn3 = nn.BatchNorm2d(planes * 4)
+        self.conv3 = nn.Conv2d(width, planes * 2, kernel_size=1, bias=False)
+        self.bn3 = nn.BatchNorm2d(planes * 2)
         self.relu = nn.ReLU(inplace=True)
-        self.se_module = SEModule(planes * 4, reduction=reduction)
+        self.se_module = SEModule(planes * 2, reduction=reduction)
         self.downsample = downsample
         self.stride = stride
 
@@ -203,13 +203,14 @@ class SENet(nn.Module):
                 ('relu1', nn.ReLU(inplace=True)),
             ]
 
-        layer0_modules.append(('pool', nn.MaxPool2d(3, stride=2,ceil_mode=True)))
+        # layer0_modules.append(('pool', nn.MaxPool2d(3, stride=2,ceil_mode=True)))
 
         self.layer0 = nn.Sequential(OrderedDict(layer0_modules))
         self.layer1 = self._make_layer(
             block,
             planes=64,
             blocks=layers[0],
+            stride=2,
             groups=groups,
             reduction=reduction,
             downsample_kernel_size=1,
@@ -293,7 +294,7 @@ class SENet(nn.Module):
 
 def FaceBagNet_model_A(num_classes=2):
     model = SENet(SEResNeXtBottleneck, [2, 2, 2, 2], groups=32, reduction=16,
-                  dropout_p=None, inplanes=64, input_3x3=False,
+                  dropout_p=None, inplanes=32, input_3x3=True,
                   downsample_kernel_size=1, downsample_padding=0,
                   num_classes=num_classes)
     return model

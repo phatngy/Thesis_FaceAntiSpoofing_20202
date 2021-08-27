@@ -23,7 +23,6 @@ def load_test_list():
 class NonZeroCrop(object):
     """Cut out black regions.
     """
-
     def __call__(self, img):
         arr = np.asarray(img)
         pixels = np.transpose(arr.nonzero())
@@ -32,3 +31,4 @@ class NonZeroCrop(object):
         top = pixels.min(axis=0)
         h, w = pixels.max(axis=0) - top
         return F.crop(img, top[0], top[1], h, w)
+

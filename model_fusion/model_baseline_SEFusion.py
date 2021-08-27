@@ -1,5 +1,7 @@
 import os
-from utils import *
+# from utils import *
+import sys
+sys.path.append("..")
 import torchvision.models as tvm
 from torchvision.models.resnet import BasicBlock
 import torch.nn as nn
@@ -10,7 +12,7 @@ import numpy as np
 BatchNorm2d = nn.BatchNorm2d
 from model.model_baseline import Net
 from model.backbone.FaceBagNet import SEModule
-from model.backbone.repvgg import RepVGGBlock
+from model.backbone.repvgg_new import RepVGGBlock
 
 ###########################################################################################3
 class FusionNet(nn.Module):
@@ -35,23 +37,24 @@ class FusionNet(nn.Module):
 
         assert 0 not in self.override_groups_map
 
-        self.color_module = Net(num_class=num_class, is_first_bn=True)
-        self.depth_module = Net(num_class=num_class, is_first_bn=True)
-        self.ir_module = Net(num_class=num_class, is_first_bn=True)
+        self.color_moudle = Net(num_class=num_class, is_first_bn=True)
+        self.depth_moudle = Net(num_class=num_class, is_first_bn=True)
+        self.ir_moudle = Net(num_class=num_class, is_first_bn=True)
 
 
         self.color_SE = SEModule(128,reduction=16)
         self.depth_SE = SEModule(128,reduction=16)
         self.ir_SE = SEModule(128,reduction=16)
 
-        # self.res_0 = self._make_layer(BasicBlock, 384, 256, 2, stride=2)
-        # self.res_1 = self._make_layer(BasicBlock, 256, 512, 2, stride=2)
+        self.res_0 = self._make_layer(BasicBlock, 384, 256, 2, stride=2)
+        self.res_1 = self._make_layer(BasicBlock, 256, 512, 2, stride=2)
 
-        self.res_0 = self._make_RepVGG_layer(384, num_blocks[2], stride=2)
-        self.res_1 = self._make_RepVGG_layer(int(512 * width_multiplier[3]), num_blocks[3], stride=2)
+        # self.res_0 = self._make_RepVGG_layer(384, num_blocks[2], stride=2)
+        # self.res_1 = self._make_RepVGG_layer(int(512 * width_multiplier[3]), num_blocks[3], stride=2)
 
         self.fc = nn.Sequential(nn.Dropout(0.5),
-                                nn.Linear(int(512 * width_multiplier[3]), 256),
+                                # nn.Linear(int(512 * width_multiplier[3]), 256),
+                                nn.Linear(int(512), 256),
                                 nn.ReLU(inplace=True),
                                 nn.Linear(256, num_class))
 
@@ -89,9 +92,9 @@ class FusionNet(nn.Module):
         depth = x[:, 3:6,:,:]
         ir = x[:, 6:9,:,:]
 
-        color_feas = self.color_module.forward_res3(color)
-        depth_feas = self.depth_module.forward_res3(depth)
-        ir_feas = self.ir_module.forward_res3(ir)
+        color_feas = self.color_moudle.forward_res3(color)
+        depth_feas = self.depth_moudle.forward_res3(depth)
+        ir_feas = self.ir_moudle.forward_res3(ir)
 
         color_feas = self.color_SE(color_feas)
         depth_feas = self.depth_SE(depth_feas)
@@ -119,10 +122,11 @@ class FusionNet(nn.Module):
                         m.bias.requires_grad   = False
 
 ### run ##############################################################################
-def run_check_net():
+def run_check_net():    
     num_class = 2
+    x = torch.rand(36, 9, 48, 48)
     net = Net(num_class)
-    print(net)
+    output = net.forward(x)
 
 ########################################################################################
 if __name__ == '__main__':

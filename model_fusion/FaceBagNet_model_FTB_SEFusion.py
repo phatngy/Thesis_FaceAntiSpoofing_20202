@@ -1,5 +1,6 @@
 import torch
-
+import sys
+sys.path.append("..")
 from torch import nn
 import torch.nn.functional as F
 from torchvision.models.resnet import BasicBlock
@@ -7,15 +8,17 @@ from torchvision.models.resnet import BasicBlock
 from model.FaceBagNet_model_FTB import Net
 from model.backbone.FeatherNet import SELayer
 from model.backbone.FaceBagNet import SEModule
-from model.backbone.repvgg import RepVGGBlock
+from model.backbone.repvgg_new import RepVGGBlock
+from model.backbone.FaceBagNet import SEModule, SEResNeXtBottleneck
+
 BatchNorm2d = nn.BatchNorm2d
 
 
 class FusionNet(nn.Module):
-    def __init__(self, num_class=2, deploy=False, width_multiplier=[1.5, 1.5, 1.5, 2.75], num_blocks=[2, 4, 14, 1], override_groups_map=None):
+    def __init__(self, num_class=2, deploy=False, width_multiplier=[1.5, 1.5, 1.5, 2.75], num_blocks=[2, 4, 2, 2], override_groups_map=None):
         super(FusionNet, self).__init__()
         self.deploy = deploy
-        # width_multiplier = [1, 1, 1, 1]
+        width_multiplier = [1, 1, 1, 1]
         self.cur_layer_idx = 1
         self.in_planes = int(256 * width_multiplier[2]) 
         self.override_groups_map = override_groups_map or dict()
@@ -34,30 +37,53 @@ class FusionNet(nn.Module):
                                          nn.BatchNorm2d(int(256 * width_multiplier[2])),
                                          nn.ReLU(inplace=True))
 
-        # self.res_0 = self._make_layer(BasicBlock, 128, 256, 2, stride=2)
-        # self.res_1 = self._make_layer(BasicBlock, 256, 512, 2, stride=2)
-
+        # self.res_0 = self._make_layer(
+        #     SEResNeXtBottleneck,
+        #     planes=256,
+        #     blocks=2,
+        #     stride=2,
+        #     groups=32,
+        #     reduction=16,
+        #     downsample_kernel_size=1,
+        #     downsample_padding=0
+        # )
+        # self.res_1 = self._make_layer(
+        #     SEResNeXtBottleneck,
+        #     planes=512,
+        #     blocks=2,
+        #     stride=2,
+        #     groups=32,
+        #     reduction=16,
+        #     downsample_kernel_size=1,
+        #     downsample_padding=0
+        # )
         self.res_0 = self._make_RepVGG_layer(int(256 * width_multiplier[2]), num_blocks[2], stride=2)
         self.res_1 = self._make_RepVGG_layer(int(512 * width_multiplier[3]), num_blocks[3], stride=2)
 
         self.fc = nn.Sequential(nn.Dropout(0.5),
                                 nn.Linear(int(512 * width_multiplier[3]), 256),
+                                # nn.Linear(1024, 256),
                                 nn.ReLU(inplace=True),
                                 nn.Linear(256, num_class))
     
-    def _make_layer(self, block, inplanes, planes, blocks, stride=1):
+    def _make_layer(self, block, planes, blocks, groups, reduction, stride=1,
+                    downsample_kernel_size=1, downsample_padding=0):
         downsample = None
-        if stride != 1 :
+        self.inplanes = planes
+        if stride != 1 or self.inplanes != planes * block.expansion:
             downsample = nn.Sequential(
-                nn.Conv2d(inplanes, planes * block.expansion,
-                          kernel_size=1, stride=stride, bias=False),
-                nn.BatchNorm2d(planes * block.expansion),)
+                nn.Conv2d(self.inplanes, planes * block.expansion,
+                          kernel_size=downsample_kernel_size, stride=stride,
+                          padding=downsample_padding, bias=False),
+                nn.BatchNorm2d(planes * block.expansion),
+            )
 
         layers = []
-        layers.append(block(inplanes, planes, stride, downsample))
+        layers.append(block(self.inplanes, planes, groups, reduction, stride,
+                            downsample))
         self.inplanes = planes * block.expansion
         for i in range(1, blocks):
-            layers.append(block(self.inplanes, planes))
+            layers.append(block(self.inplanes, planes, groups, reduction))
 
         return nn.Sequential(*layers)
     
@@ -93,7 +119,7 @@ class FusionNet(nn.Module):
         x = self.res_1(x)
         ft = F.adaptive_avg_pool2d(x, output_size=1).view(batch_size, -1)
         x = self.fc(ft)
-        return x, ft, None
+        return x, ft, self.fc[:3](ft)
 
     def set_mode(self, mode, is_freeze_bn=False ):
         self.mode = mode
@@ -112,5 +138,7 @@ class FusionNet(nn.Module):
 if __name__ == "__main__":
     model = FusionNet(2)
     dummy = torch.rand(36, 9, 48, 48)
+    pytorch_total_params = sum(p.numel() for p in model.parameters())
+    print('total_params: ',pytorch_total_params)
     output = model.forward(dummy)
     # torch.onnx.export(model, dummy, 'FaceBagNet_model_FTB_SEFusion.onnx', verbose=False) 

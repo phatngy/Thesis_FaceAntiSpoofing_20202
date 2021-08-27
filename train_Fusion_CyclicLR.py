@@ -68,11 +68,12 @@ def run_train(config):
     sum1 = 0
     dict_samples = train_dataset.analyze()
     nclass = len(dict_samples.keys())
-    print('Data distribution: ')
-    print(dict_samples)
+    log.write('Data distribution for valid: %s' %dict_samples)
+    # log.write()
     sum1 = sum(dict_samples.values())
     max1 = max(dict_samples.values())
     print('\n')
+    exit()
     weights_loss = [ sum1/i for i in dict_samples.values() ]
     weights_loss = torch.FloatTensor(np.array(weights_loss))
 
@@ -87,7 +88,7 @@ def run_train(config):
         }
     elif config.criterion == 'crl':
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        criterion_class = FocalLoss(1, None).to(device)
+        criterion_class = FocalLoss(2, 0.5).to(device)
         # CRL loss
         nuy = 0.1
         lalpha = (1-(np.array(weights_loss)/max1).mean())*nuy
@@ -102,7 +103,7 @@ def run_train(config):
         }
 
     assert(len(train_dataset)>=config.batch_size)
-    log.write('batch_size = %d\n'%(config.batch_size))
+    log.write('\nbatch_size = %d\n'%(config.batch_size))
     log.write('train_dataset : \n%d\n'%(len(train_dataset)))
     log.write('valid_dataset : \n%d\n'%(len(valid_dataset)))
     log.write('\n')
@@ -119,9 +120,9 @@ def run_train(config):
     # exit(0)
 
     if initial_checkpoint is not None:
-        initial_checkpoint = os.path.join(out_dir +'/checkpoint',initial_checkpoint)
+        # initial_checkpoint = os.path.join(out_dir +'/checkpoint',initial_checkpoint)
         print('\tinitial_checkpoint = %s\n' % initial_checkpoint)
-        net.load_state_dict(torch.load(initial_checkpoint, map_location=lambda storage, loc: storage))
+        net.load_state_dict(torch.load(initial_checkpoint, map_location=lambda storage, loc: storage), strict=False)
 
     log.write('%s\n'%(type(net)))
     log.write('criterion=%s\n'%config.criterion)
@@ -192,7 +193,8 @@ def run_train(config):
                     loss_m  = criterion['crl'](logit, truth)
                     loss_c = criterion['focal'](logit, truth)        ### compute Focal Loss
                     # measure accuracy and record loss
-                    loss = (1-lalpha)*loss_c + lalpha*loss_m            ### compute CRL Loss
+                    # loss = (1-lalpha)*loss_c + lalpha*loss_m            ### compute CRL Loss
+                    loss = loss_c
 
                 precision,_ = metric(logit, truth)
 
@@ -252,7 +254,7 @@ def run_test(config, dir):
     # from convert import *
     # net = get_model(model_name=config.model, num_class=2)
     # net = torch.nn.DataParallel(net)
-    net, initial_checkpoint = convert(config.pretrained_model)
+    net, initial_checkpoint = convert(config.pretrained_model, model_name=config.model)
     net =  net.cuda()
     pytorch_total_params = sum(p.numel() for p in net.parameters())
     print('total_params: ', pytorch_total_params)
@@ -262,31 +264,35 @@ def run_test(config, dir):
         initial_checkpoint = os.path.join(out_dir +'/checkpoint',initial_checkpoint)
         print('\tinitial_checkpoint = %s\n' % initial_checkpoint)
         print('ckpt: ', initial_checkpoint)
-        net.load_state_dict(torch.load(config.pretrained_model, map_location=lambda storage, loc: storage))
+        ckpt = torch.load(config.pretrained_model, map_location=lambda storage, loc: storage)
+        net = load_checkpoint(net, ckpt)
         if not os.path.exists(os.path.join(out_dir + '/checkpoint', dir)):
             os.makedirs(os.path.join(out_dir + '/checkpoint', dir))
-
-    valid_dataset = FDDataset(mode = 'val', modality=config.image_mode,image_size=config.image_size,
-                              fold_index=config.train_fold_index)
-    valid_loader  = DataLoader( valid_dataset,
-                                shuffle=False,
-                                batch_size=config.batch_size,
-                                drop_last=False,
-                                num_workers=8)
-
-    test_dataset = FDDataset(mode='test', modality=config.image_mode, image_size=config.image_size,
-                              fold_index=config.train_fold_index, cross_test=config.cross_test)
-    test_loader  = DataLoader( test_dataset,
-                                shuffle=False,
-                                batch_size=config.batch_size,
-                                drop_last=False,
-                                num_workers=8)
+    
+    mem_params = sum([param.nelement()*param.element_size() for param in net.parameters()])
+    mem_bufs = sum([buf.nelement()*buf.element_size() for buf in net.buffers()])
+    mem = mem_params + mem_bufs # in bytes
+    print('mem on GPU', mem)
 
     criterion = softmax_cross_entropy_criterion
     net.eval()
     if not config.phase_test:
+        valid_dataset = FDDataset(mode = 'val', modality=config.image_mode,image_size=config.image_size,
+                                fold_index=config.train_fold_index)
+        valid_loader  = DataLoader( valid_dataset,
+                                    shuffle=False,
+                                    batch_size=config.batch_size,
+                                    drop_last=False,
+                                    num_workers=8)
         valid_loss,out,tprs = do_valid_test(net, valid_loader, criterion)
     else:
+        test_dataset = FDDataset(mode='test', modality=config.image_mode, image_size=config.image_size,
+                                fold_index=config.train_fold_index, cross_test=config.cross_test)
+        test_loader  = DataLoader( test_dataset,
+                                    shuffle=False,
+                                    batch_size=config.batch_size,
+                                    drop_last=False,
+                                    num_workers=8)
         valid_loss,out,tprs = do_valid_test(net, test_loader, criterion)
     print('%0.6f  %0.6f  %0.3f  (%0.3f) \n' % (valid_loss[0], valid_loss[1], valid_loss[2], valid_loss[3]))
 

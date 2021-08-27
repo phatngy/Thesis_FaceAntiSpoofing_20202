@@ -90,8 +90,8 @@ class FeatherNet(nn.Module):
         self.avgdown = avgdown
         interverted_residual_setting = [
             # t, c, n, s
-            [1, 48, 2, 2], # 56x56
-            [6, 64, 2, 2], # 28x28
+            [1, 48, 3, 2], # 56x56
+            [6, 64, 4, 2], # 28x28
             # [6, 48, 6, 2], # 14x14
             # [6, 64, 3, 2], # 7x7
         ]

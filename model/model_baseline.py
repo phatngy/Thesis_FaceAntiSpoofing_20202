@@ -60,11 +60,11 @@ class Net(nn.Module):
                 (x[:,[2]]-mean[2])/std[2],
             ],1)
 
-        x = self.conv1(x) #; print('e1',x.size())
-        x = self.conv2(x) #; print('e2',x.size())
-        x = self.conv3(x) #; print('e3',x.size())
-        x = self.conv4(x) #; print('e4',x.size())
-        x = self.conv5(x) #; print('e5',x.size())
+        x = self.conv1(x) ; print('e1',x.size())
+        x = self.conv2(x) ; print('e2',x.size())
+        x = self.conv3(x) ; print('e3',x.size())
+        x = self.conv4(x) ; print('e4',x.size())
+        x = self.conv5(x) ; print('e5',x.size())
 
         fea = F.adaptive_avg_pool2d(x, output_size=1).view(batch_size,-1)
         fea = F.dropout(fea, p=0.50, training=self.training)
@@ -88,10 +88,10 @@ class Net(nn.Module):
                 (x[:,[2]]-mean[2])/std[2],
             ],1)
 
-
-        x = self.conv1(x) #; print('e1',x.size())
-        x = self.conv2(x) #; print('e2',x.size())
-        x = self.conv3(x) #; print('e3',x.size())
+        # print('e0',x.size())
+        x = self.conv1(x) ; #print('e1',x.size())
+        x = self.conv2(x) ; #print('e2',x.size())
+        x = self.conv3(x) ; #print('e3',x.size())
 
         return x
 
@@ -114,4 +114,6 @@ if __name__ == '__main__':
     import os
     model = Net(num_class=2, is_first_bn=True)
     pytorch_total_params = sum(p.numel() for p in model.parameters())
+    x = torch.rand((1, 3, 32, 32))
+    y = model.forward_res3(x)
     print(pytorch_total_params)

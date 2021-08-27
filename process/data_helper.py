@@ -2,13 +2,17 @@ import os
 import random
 from utils import *
 
-DATA_ROOT = r'/u01/khienpv1/DATA/antispoof/public/CASIA-SURF'
+# DATA_ROOT = r'/u01/DATA/DATA/antispoofing/CASIA-SURF'
+# TRN_IMGS_DIR = DATA_ROOT + '/Training/'
+# VAL_IMGS_DIR = DATA_ROOT + '/Val/'
+# TST_IMGS_DIR = DATA_ROOT
 
-TRN_IMGS_DIR = DATA_ROOT + '/Training/'
-VAL_IMGS_DIR = DATA_ROOT + '/Val/'
-TST_IMGS_DIR = DATA_ROOT + '/Testing/'
+DATA_ROOT = r'/u01/khienpv1/Phat/face_anti/FaceBagNet_FAS_CVPR2019/data/split_norm'
+TRN_IMGS_DIR = DATA_ROOT + '/train/'
+VAL_IMGS_DIR = DATA_ROOT + '/val/'
+TST_IMGS_DIR = DATA_ROOT + '/test/'
+
 RESIZE_SIZE = 112
-
 def load_train_list():
     list = []
     f = open(DATA_ROOT + '/train_list.txt')
@@ -17,11 +21,14 @@ def load_train_list():
     for line in lines:
         line = line.strip().split(' ')
         list.append(line)
+    random.shuffle(list)
     return list
 
 def load_val_list():
     list = []
-    f = open(DATA_ROOT + '/val_private_list.txt')
+    # f = open(DATA_ROOT + '/val_private_list.txt')
+    f = open(DATA_ROOT + '/val_list.txt')
+
     lines = f.readlines()
 
     for line in lines:
@@ -31,7 +38,9 @@ def load_val_list():
 
 def load_test_list():
     list = []
-    f = open(DATA_ROOT + '/test_private_list.txt')
+    # f = open(DATA_ROOT + '/test_private_list.txt')
+    f = open(DATA_ROOT + '/test_list.txt')
+
     lines = f.readlines()
 
     for line in lines:

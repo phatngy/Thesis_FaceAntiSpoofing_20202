@@ -3,7 +3,7 @@ from .augmentation import *
 from .data_helper import *
 
 class FDDataset(Dataset):
-    def __init__(self, mode, modality='color', fold_index='<NIL>', image_size=128, augment = None, balance = True, ROI=None, cross_test=False):
+    def __init__(self, mode, modality='color', fold_index='<NIL>', image_size=128, augment = None, balance = False, ROI=None, cross_test=False):
         super(FDDataset, self).__init__()
         print('fold: '+str(fold_index))
         print(modality)
@@ -72,17 +72,26 @@ class FDDataset(Dataset):
                 color, depth, ir, label = tmp_list[pos]
             else:
                 color, depth, ir, label = self.train_list[index]
-
+            DATA_ROOT = self.train_image_path
         elif self.mode == 'val':
             color, depth, ir, label = self.val_list[index]
-
+            DATA_ROOT = self.val_image_path
+            
         elif self.mode == 'test':
             color, depth, ir, label = self.test_list[index]
             # test_id = color+' '+depth+' '+ir
+            DATA_ROOT = self.test_image_path
+        # print(os.path.join(DATA_ROOT, depth))
+        # print(os.path.join(DATA_ROOT, color))
+        # print(os.path.join(DATA_ROOT, ir))
 
         color = cv2.imread(os.path.join(DATA_ROOT, color),1)
         depth = cv2.imread(os.path.join(DATA_ROOT, depth),1)
         ir = cv2.imread(os.path.join(DATA_ROOT, ir),1)
+        # print('shape depth ', depth.shape)
+        # print('shape ir ', ir.shape)
+        # print('shape color ', color.shape)
+
         if self.cross_test:
             color = self.non_zeros(color)
             depth = self.non_zeros(depth)

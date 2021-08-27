@@ -1,5 +1,7 @@
 import os
 # from utils import *
+import sys
+sys.path.append("..")
 from torchvision.models.resnet import BasicBlock
 import torch.nn as nn
 import torch
@@ -7,7 +9,7 @@ import torch.nn.functional as F
 import numpy as np
 BatchNorm2d = nn.BatchNorm2d
 from model.FaceBagNet_model_A import Net
-from model.backbone.FaceBagNet import SEModule
+from model.backbone.FaceBagNet import SEModule, SEResNeXtBottleneck
 
 ###########################################################################################3
 class FusionNet(nn.Module):
@@ -25,43 +27,82 @@ class FusionNet(nn.Module):
 
     def __init__(self, num_class=2):
         super(FusionNet,self).__init__()
-
+        self.inplanes = 256
         self.color_moudle  = Net(num_class=num_class,is_first_bn=True)
         self.depth_moudle = Net(num_class=num_class,is_first_bn=True)
         self.ir_moudle = Net(num_class=num_class,is_first_bn=True)
 
-        self.color_SE = SEModule(512,reduction=16)
-        self.depth_SE = SEModule(512,reduction=16)
-        self.ir_SE = SEModule(512,reduction=16)
+        self.color_SE = SEModule(256,reduction=16)
+        self.depth_SE = SEModule(256,reduction=16)
+        self.ir_SE = SEModule(256,reduction=16)
 
-        self.bottleneck = nn.Sequential(nn.Conv2d(512*3, 128*3, kernel_size=1, padding=0),
-                                         nn.BatchNorm2d(128*3),
+        self.bottleneck = nn.Sequential(nn.Conv2d(256*3, 256, kernel_size=1, padding=0),
+                                         nn.BatchNorm2d(256),
                                          nn.ReLU(inplace=True))
 
-        self.res_0 = self._make_layer(BasicBlock, 128*3, 256, 2, stride=2)
-        self.res_1 = self._make_layer(BasicBlock, 256, 512, 2, stride=2)
+        # self.res_0 = self._make_layer(BasicBlock, 256, 512, 2, stride=2)
+        # self.res_1 = self._make_layer(BasicBlock, 512, 1024, 2, stride=2)
+        self.res_0 = self._make_layer(
+            SEResNeXtBottleneck,
+            planes=256,
+            blocks=2,
+            stride=2,
+            groups=32,
+            reduction=16,
+            downsample_kernel_size=1,
+            downsample_padding=0
+        )
+        self.res_1 = self._make_layer(
+            SEResNeXtBottleneck,
+            planes=512,
+            blocks=2,
+            stride=2,
+            groups=32,
+            reduction=16,
+            downsample_kernel_size=1,
+            downsample_padding=0
+        )
+
 
         self.fc = nn.Sequential(nn.Dropout(0.5),
-                                nn.Linear(512, 256),
+                                nn.Linear(1024, 256),
                                 nn.ReLU(inplace=True),
                                 nn.Linear(256, num_class))
 
-    def _make_layer(self, block, inplanes, planes, blocks, stride=1):
+    # def _make_layer(self, block, inplanes, planes, blocks, stride=1):
+    #     downsample = None
+    #     if stride != 1 :
+    #         downsample = nn.Sequential(
+    #             nn.Conv2d(inplanes, planes * block.expansion,
+    #                       kernel_size=1, stride=stride, bias=False),
+    #             nn.BatchNorm2d(planes * block.expansion),)
+
+    #     layers = []
+    #     layers.append(block(inplanes, planes, stride, downsample))
+    #     self.inplanes = planes * block.expansion
+    #     for i in range(1, blocks):
+    #         layers.append(block(self.inplanes, planes))
+
+    #     return nn.Sequential(*layers)
+    def _make_layer(self, block, planes, blocks, groups, reduction, stride=1,
+                    downsample_kernel_size=1, downsample_padding=0):
         downsample = None
-        if stride != 1 :
+        if stride != 1 or self.inplanes != planes * block.expansion:
             downsample = nn.Sequential(
-                nn.Conv2d(inplanes, planes * block.expansion,
-                          kernel_size=1, stride=stride, bias=False),
-                nn.BatchNorm2d(planes * block.expansion),)
+                nn.Conv2d(self.inplanes, planes * block.expansion,
+                          kernel_size=downsample_kernel_size, stride=stride,
+                          padding=downsample_padding, bias=False),
+                nn.BatchNorm2d(planes * block.expansion),
+            )
 
         layers = []
-        layers.append(block(inplanes, planes, stride, downsample))
+        layers.append(block(self.inplanes, planes, groups, reduction, stride,
+                            downsample))
         self.inplanes = planes * block.expansion
         for i in range(1, blocks):
-            layers.append(block(self.inplanes, planes))
+            layers.append(block(self.inplanes, planes, groups, reduction))
 
         return nn.Sequential(*layers)
-
 
     def forward(self, x):
         batch_size,C,H,W = x.shape
@@ -80,9 +121,12 @@ class FusionNet(nn.Module):
 
         fea = torch.cat([color_feas, depth_feas, ir_feas], dim=1)
         fea = self.bottleneck(fea)
+        # print('catted_fea', fea.size())
 
         x = self.res_0(fea)
+        # print('res_0', x.size())
         x = self.res_1(x)
+        # print('res_1', x.size())
         x = F.adaptive_avg_pool2d(x, output_size=1).view(batch_size, -1)
         x = self.fc(x)
         return x,None,None
@@ -103,11 +147,19 @@ class FusionNet(nn.Module):
 ### run ##############################################################################
 def run_check_net():
     num_class = 2
-    net = Net(num_class)
-    print(net)
+    x = torch.rand(36, 9, 48, 48)
+    net = FusionNet(num_class)
+    output = net.forward(x)
+    # print(net)
 
 ########################################################################################
 if __name__ == '__main__':
     import os
     run_check_net()
     print( 'sucessful!')
+    model = FusionNet(2)
+    dummy = torch.rand(36, 9, 48, 48)
+    output = model.forward(dummy)
+    from prettytable import PrettyTable
+    p = count_parameters(model)
+    print(p)

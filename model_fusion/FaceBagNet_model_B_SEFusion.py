@@ -105,7 +105,7 @@ class FusionNet(nn.Module):
 
         fea = torch.cat([color_feas, depth_feas, ir_feas], dim=1)
         fea = self.bottleneck(fea)
-
+        print(fea.size())
         x = self.res_0(fea)
         x = self.res_1(x)
         x = F.adaptive_avg_pool2d(x, output_size=1).view(batch_size, -1)

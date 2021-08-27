@@ -1,3 +1,5 @@
+import sys
+sys.path.append("..")
 import torch
 
 from torch import nn
@@ -6,7 +8,7 @@ from torchvision.models.resnet import BasicBlock
 
 from model.FaceBagNet_model_RepVGG import Net
 from model.backbone.FaceBagNet import SEModule
-from model.backbone.repvgg import RepVGGBlock
+from model.backbone.repvgg_new import RepVGGBlock, repvgg_model_convert
 BatchNorm2d = nn.BatchNorm2d
 
 
@@ -14,12 +16,14 @@ class FusionNet(nn.Module):
     def __init__(self, num_class=2, deploy=False, width_multiplier=[0.75, 0.75, 0.75, 2.5], num_blocks=[2, 4, 14, 1], override_groups_map=None):
         super(FusionNet, self).__init__()
         self.deploy = deploy
+        # width_multiplier=[1, 1, 1, 1]
+        # num_blocks=[2, 2, 2, 2]
         self.cur_layer_idx = 1
         self.in_planes = int(256 * width_multiplier[2]) 
         self.override_groups_map = override_groups_map or dict()
 
         assert 0 not in self.override_groups_map
-
+        
         self.color_module = Net(num_class=num_class, is_first_bn=True)
         self.depth_module = Net(num_class=num_class, is_first_bn=True)
         self.ir_module = Net(num_class=num_class, is_first_bn=True)
@@ -69,7 +73,7 @@ class FusionNet(nn.Module):
 
     def forward(self, x):
         batch_size,C,H,W = x.shape
-
+        x.cuda()
         color = x[:, 0:3,:,:]
         depth = x[:, 3:6,:,:]
         ir = x[:, 6:9,:,:]
@@ -105,8 +109,27 @@ class FusionNet(nn.Module):
                         m.bias.requires_grad   = False
 
 
+def count_parameters(model):
+    table = PrettyTable(["Modules", "Parameters"])
+    total_params = 0
+    for name, parameter in model.named_parameters():
+        if not parameter.requires_grad: continue
+        param = parameter.numel()
+        table.add_row([name, param])
+        total_params+=param
+    print(f"Total Trainable Params: {total_params}")
+    print(table)
+    return total_params
+
 if __name__ == "__main__":
     model = FusionNet(2)
     dummy = torch.rand(36, 9, 48, 48)
-    output = model.forward(dummy)
-    # torch.onnx.export(model, dummy, 'FaceBagNet_model_FTB_SEFusion.onnx', verbose=False) 
+    # output = model.forward(dummy)
+    # from prettytable import PrettyTable
+    # p = count_parameters(model)
+    # print(p)
+    from torchsummary import summary
+    converted_model = repvgg_model_convert(model)
+    # converted_model.train()
+    print(summary(converted_model.cuda(), (9, 48, 48)))
+    # # torch.onnx.export(model, dummy, 'FaceBagNet_model_FTB_SEFusion.onnx', verbose=False) 

@@ -72,7 +72,7 @@ class FDDataset(Dataset):
             color,depth,ir,label = self.val_list[index]
 
         elif self.mode == 'test':
-            color, depth, ir = self.test_list[index]
+            color, depth, ir,label = self.test_list[index]
             test_id = color + ' ' + depth + ' ' + ir
 
         if self.modality=='color':
@@ -120,8 +120,9 @@ class FDDataset(Dataset):
             image = image.astype(np.float32)
             image = image.reshape([n, self.channels, self.image_size, self.image_size])
             image = image / 255.0
+            label = int(label)
 
-            return torch.FloatTensor(image), test_id
+            return torch.FloatTensor(image), torch.LongTensor(np.asarray(label).reshape([-1]))
 
 
     def __len__(self):

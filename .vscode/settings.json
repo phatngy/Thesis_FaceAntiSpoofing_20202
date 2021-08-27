@@ -1,3 +1,4 @@
 {
-    "python.pythonPath": "/home/phatngy/anaconda3/envs/face-3d/bin/python"
+    "python.pythonPath": "/home/intern2/miniconda3/envs/face-3d/bin/python",
+    "git.ignoreLimitWarning": true
 }

@@ -56,7 +56,11 @@ def TTA_5_cropps(image, target_shape=(32, 32, 3)):
 
         zeros = image_[x:x + target_w, y: y+target_h, :]
         image_ = zeros.copy()
+        zeros = np.fliplr(zeros)
+        image_flip = zeros.copy()
+
         images.append(image_.reshape([1,target_shape[0],target_shape[1],target_shape[2]]))
+        images.append(image_flip.reshape([1,target_shape[0],target_shape[1],target_shape[2]]))
 
     return images
 
@@ -219,7 +223,7 @@ def color_augumentor(image, target_shape=(32, 32, 3), is_infer=False, roi=None):
         ])
 
         image =  augment_img.augment_image(image)
-        image = TTA_36_cropps(image, target_shape)
+        image = TTA_18_cropps(image, target_shape)
         return image
 
     else:
@@ -241,7 +245,7 @@ def depth_augumentor(image, target_shape=(32, 32, 3), is_infer=False, roi=None):
         ])
 
         image =  augment_img.augment_image(image)
-        image = TTA_36_cropps(image, target_shape)
+        image = TTA_18_cropps(image, target_shape)
         return image
 
     else:
@@ -262,7 +266,7 @@ def ir_augumentor(image, target_shape=(32, 32, 3), is_infer=False, roi=None):
             iaa.Fliplr(0),
         ])
         image =  augment_img.augment_image(image)
-        image = TTA_36_cropps(image, target_shape)
+        image = TTA_18_cropps(image, target_shape)
         return image
 
     else:
